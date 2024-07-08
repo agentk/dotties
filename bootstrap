@@ -1,0 +1,237 @@
+#!/usr/bin/env zsh
+
+SKIP_SUDO=
+SKIP_PACKAGE_INSTALL=
+SKIP_CHANGE_SHELL=
+SKIP_STOW=
+
+# -----------------------------------------------------------------------------
+
+_inverse=$(tput smso)    # inverse - marks beginning end of this script
+_bold=$(tput bold)       # bold - marks calling other functions or scripts
+_underline=$(tput smul)  # underline - marks comments
+_warning=$(tput setaf 3) # yellow - marks warnings
+_error=$(tput setaf 1)   # red - marks errors
+_reset=$(tput sgr0)      # normal - resets all
+
+# -----------------------------------------------------------------------------
+
+PLATFORM=$(uname)
+PLATFORM_MACOS=
+PLATFORM_LINUX=
+if [[ $PLATFORM == Darwin ]]; then
+  echo "${_inverse}Bootstrapping: 'macOS'${_reset}"
+  PLATFORM_MACOS=1
+elif [[ $PLATFORM == Linux ]]; then
+  echo "${_inverse}Bootstrapping: 'Linux'${_reset}"
+  PLATFORM_LINUX=1
+else
+  echo "${_error}Unknown platform: '$PLATFORM'${_reset}"
+  exit 1
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Sudo
+#
+
+if [[ $SKIP_SUDO ]]; then
+  echo "Skipping sudo"
+else
+  if [[ $PLATFORM_LINUX ]]; then
+    TARGET_FILE="/etc/sudoers.d/$USER"
+    echo "$USER ALL=(ALL) NOPASSWD: ALL" >/tmp/sudo-user
+    which sudo >/dev/null
+    if [[ $? == 1 ]]; then
+      echo "${_inverse} Setting up sudo ${_reset}"
+      su root -c "apt update && apt upgrade -y && apt install -y sudo && cp /tmp/sudo-user $TARGET_FILE"
+    elif [[ ! -e $TARGET_FILE ]]; then
+      echo "${_inverse} Setting up copying sudo file ${_reset}"
+      su root -c "cp /tmp/sudo-user $TARGET_FILE"
+    fi
+    rm /tmp/sudo-user
+    # We should be able to sudo without a password now
+    echo "${_warning} If you get prompted for a password, kill this script and verify sudo setup ${_reset}"
+    sudo whoami >/dev/null
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Base packages install
+#
+
+install_neovim() {
+  sudo apt install -y ninja-build gettext cmake unzip curl g++
+  if [[ ! -d ~/neovim ]]; then
+    git clone https://github.com/neovim/neovim.git ~/neovim
+  fi
+  cd ~/neovim || exit 1
+  git checkout stable
+  make CMAKE_BUILD_TYPE=RelWithDebInfo
+  sudo make install
+  cd ~/ || exit 1
+}
+
+if [[ $SKIP_PACKAGE_INSTALL ]]; then
+  echo "Skipping package install"
+else
+  # --------------
+  # --- Global ---
+  # --------------
+
+  # --- rust and cargo ---
+  if ! which cargo >>/dev/null; then
+    curl https://sh.rustup.rs -sSf | sh
+    . ~/.cargo/env
+  fi
+
+  if [[ $PLATFORM_LINUX ]]; then
+    # --- apt install ---
+    TO_INSTALL=()
+    for name in cargo curl git neofetch stow tmux tree vim zoxide zsh; do
+      which $name >/dev/null || TO_INSTALL+=("$name")
+    done
+    which rg >/dev/null || TO_INSTALL+=('ripgrep')
+    if [[ ! "${TO_INSTALL[*]}" == "" ]]; then
+      echo "Installing: ${TO_INSTALL[*]}"
+      sudo apt update -qq
+      sudo apt upgrade -qq -y
+      sudo apt install -qq -y "${TO_INSTALL[@]}"
+    fi
+
+    # --- nvm and node ---
+    if [[ ! -f ~/.nvm/nvm.sh ]]; then
+      wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+      source ~/.zshrc
+      nvm install node
+    fi
+
+    # --- neovim ---
+    which nvim >/dev/null
+    if [[ $? == 1 ]]; then
+      install_neovim
+      cargo install tree-sitter-cli
+    fi
+
+  elif [[ $PLATFORM_MACOS ]]; then
+    which brew >/dev/null
+    if [[ $? == 1 ]]; then
+      echo "${_inverse} Brew not found - installing ${_reset}"
+      # xcode-select --install
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+    REQUIRED=(
+      age
+      bat
+      cheat
+      eza
+      fastfetch
+      fd
+      fzf
+      gh
+      go
+      jq
+      lazygit
+      nmap
+      node
+      shellcheck
+      shfmt
+      sops
+      stow
+      swiftformat
+      swiftlint
+      tmux
+      yq
+      zoxide
+    )
+    TO_INSTALL=()
+    for name in "${REQUIRED[@]}"; do
+      which "$name" >/dev/null || TO_INSTALL+=("$name")
+    done
+    which delta >/dev/null || TO_INSTALL+=('git-delta')
+    which nvim >/dev/null || TO_INSTALL+=('neovim')
+    which rg >/dev/null || TO_INSTALL+=('ripgrep')
+    which tldr >/dev/null || TO_INSTALL+=('tlrc')
+    [[ -f /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme ]] ||
+      TO_INSTALL+=('powerlevel10k')
+    [[ -f /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]] ||
+      TO_INSTALL+=('zsh-autosuggestions')
+
+    # Fonts:
+    typeset -A fonts=(
+    font-fira-code ~/Library/Fonts/FiraCode-Bold.ttf
+    font-jetbrains-mono ~/Library/Fonts/JetBrainsMonoNL-Regular.ttf
+    )
+    for app file in "${(@kv)fonts}"; do
+      [[ -f $file ]] || TO_INSTALL+=("$app")
+    done
+
+    # Cask packages:
+    typeset -A casks=(
+      affinity-designer /Applications/Affinity\ Designer\ 2.app
+      affinity-photo /Applications/Affinity\ Photo\ 2.app
+      affinity-publisher /Applications/Affinity\ Publisher\ 2.app
+      daisydisk /Applications/DaisyDisk.app
+      discord /Applications/Discord.app
+      kicad /Applications/KiCad
+      maccy /Applications/Maccy.app
+      orcaslicer /Applications/OrcaSlicer.app
+      wezterm /Applications/WezTerm.app
+    )
+    for app directory in "${(@kv)casks}"; do
+      [[ -d $directory ]] || TO_INSTALL+=("$app")
+    done
+
+    if [[ ! "${TO_INSTALL[*]}" == "" ]]; then
+      echo "Installing: ${TO_INSTALL[*]}"
+      brew install "${TO_INSTALL[@]}"
+    fi
+
+    # Link up sops for global storage of private keys at ~/.config/sops/age/keys.txt
+    [[ -d ~/.config/sops/age ]] && mkdir -p ~/.config/sops/age
+    if [[ ! -L ~/Library/Application\ Support/sops ]]; then
+      ln -s ~/.config/sops ~/Library/Application\ Support/sops
+    fi
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Change shell
+#
+
+if [[ $SKIP_CHANGE_SHELL ]]; then
+  echo "Skipping change shell"
+else
+  if [[ ! $SHELL =~ /zsh$ ]]; then
+    chsh -s "$(which zsh)"
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Stow
+#
+
+if [[ $SKIP_STOW ]]; then
+  echo "Skipping stow"
+else
+  stow \
+    --dir="$HOME/.dotfiles" \
+    --target="$HOME" \
+    --restow \
+    bat \
+    bin \
+    fastfetch \
+    git \
+    hammerspoon \
+    karabiner \
+    macos \
+    nvim \
+    lazygit \
+    tmux \
+    wezterm \
+    zsh
+fi
+# vim: ts=2:sw=2:sts=2:et:ft=zsh

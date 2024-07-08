@@ -1,0 +1,38 @@
+[user]
+	name = Karl Bowden
+	email = karl@bearded.sexy
+
+[core]
+  editor = nvim
+  pager = delta
+
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+
+[init]
+	defaultBranch = main
+
+[submodule]
+	recurse = true
+
+[interactive]
+  diffFilter = delta --color-only
+
+[delta]
+  navigate = true # use n and N to move between diff sections
+  side-by-side = true
+
+[merge]
+  conflictstyle = diff3
+
+[diff]
+  colorMoved = default
+
+# [credential "https://gist.github.com"]
+# 	helper = "gh auth git-credential"
+
+# [credential "https://github.com"]
+# 	helper = "gh auth git-credential"
