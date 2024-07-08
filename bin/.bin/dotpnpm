@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PNPMFILE="$HOME/.dotfiles/Pnpmfile"
+
+_usage() {
+  cat <<EOF
+Usage: dotpnpm <command>
+
+Commands:
+  install     Install global packages from Pnpmfile
+  check       Check if all global packages are installed
+  clean       Remove global packages not listed in Pnpmfile
+  dump        Save current global packages to Pnpmfile
+  diff        Show readable diff of current global packages vs Pnpmfile
+
+Options:
+  -h, --help  Show this help message
+  -f, --file  Use alternative Pnpmfile (default: $PNPMFILE)
+EOF
+}
+
+COMMAND="${1:-}"; shift || true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--file)
+      PNPMFILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      _usage
+      exit 0
+      ;;
+    *)
+      echo "❌ Unknown option: $1"
+      _usage
+      exit 1
+      ;;
+  esac
+done
+
+# Get list of globally installed packages in a clean format (name@version)
+_get_installed_packages() {
+  pnpm list -g --depth=0 |
+    grep -v "Legend:" |
+    grep -v "dependencies:" |
+    grep -v "/Users/" |
+    grep -v "^$" |
+    sed 's/^[[:space:]]*//' |
+    awk '{print $1}' | # Extract only the package name
+    sort
+}
+
+_install() {
+  echo "🔧 Installing packages from $PNPMFILE..."
+  
+  if [[ ! -f "$PNPMFILE" ]]; then
+    echo "❌ Pnpmfile not found: $PNPMFILE"
+    exit 1
+  fi
+  
+  # Get installed packages
+  installed=$(_get_installed_packages)
+  local to_install_count=0
+  
+  # Read packages from Pnpmfile and install them if missing
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    
+    package=$(echo "$line" | awk '{print $1}') # Extract package name
+    
+    if [[ -n "$package" ]]; then
+      if ! echo "$installed" | grep -q "^$package$"; then
+        echo "📦 Installing $package..."
+        pnpm add -g "$package"
+        to_install_count=$((to_install_count + 1))
+      fi
+    fi
+  done < "$PNPMFILE"
+  
+  if [[ $to_install_count -gt 0 ]]; then
+      echo "✅ All new packages installed!"
+  else
+      echo "✅ All packages are already installed. Nothing to do."
+  fi
+}
+
+_check() {
+  echo "🔍 Checking packages against $PNPMFILE..."
+  
+  if [[ ! -f "$PNPMFILE" ]]; then
+    echo "❌ Pnpmfile not found: $PNPMFILE"
+    exit 1
+  fi
+  
+  local missing=0
+  
+  # Get installed packages
+  installed=$(_get_installed_packages)
+  
+  # Check each package in Pnpmfile
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    
+    package=$(echo "$line" | awk '{print $1}') # Extract package name
+    
+    if [[ -n "$package" ]]; then
+      if ! echo "$installed" | grep -q "^$package$"; then # Match whole line
+        echo "❌ Missing: $package"
+        missing=$((missing + 1))
+      fi
+    fi
+  done < "$PNPMFILE"
+  
+  if [[ $missing -eq 0 ]]; then
+    echo "✅ All packages are installed!"
+    return 0
+  else
+    echo "❌ $missing package(s) missing"
+    return 1
+  fi
+}
+
+_clean() {
+  echo "🧹 Cleaning up packages not listed in $PNPMFILE..."
+  
+  if [[ ! -f "$PNPMFILE" ]]; then
+    echo "❌ Pnpmfile not found: $PNPMFILE"
+    exit 1
+  fi
+  
+  # Get installed packages
+  installed=$(_get_installed_packages)
+  
+  # Build a list of packages in Pnpmfile
+  declare -A pnpmfile_packages
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    
+    package=$(echo "$line" | awk '{print $1}') # Extract package name
+    
+    if [[ -n "$package" ]]; then
+      pnpmfile_packages["$package"]=1
+    fi
+  done < "$PNPMFILE"
+  
+  # Check each installed package
+  while IFS= read -r pkg; do
+    if [[ -z "${pnpmfile_packages[$pkg]:-}" ]]; then
+      if [[ "$pkg" == "corepack" || "$pkg" == "pnpm" ]]; then
+        echo "🚫 Skipping removal of $pkg to protect pnpm."
+        continue
+      fi
+      echo "🗑️  Removing: $pkg"
+      pnpm remove -g "$pkg"
+    fi
+  done <<< "$installed"
+  
+  echo "✅ Clean-up complete!"
+}
+
+_dump() {
+  echo "📦 Dumping global pnpm packages to $PNPMFILE..."
+  
+  # Get installed packages
+  packages=$(pnpm list -g --depth=0 | 
+    grep -v "Legend:" | 
+    grep -v "dependencies:" |
+    grep -v "/Users/" |
+    grep -v "^$" |
+    sed 's/^[[:space:]]*//' |
+    sort)
+  
+  {
+    echo "# --- Global pnpm packages ---"
+    echo "# Managed by dotpnpm"
+    echo "# Format: package@version # description"
+    echo ""
+    while IFS= read -r line; do
+      pkg_name=$(echo "$line" | awk '{print $1}')
+      description=$(pnpm view "$pkg_name" description 2>/dev/null || echo "")
+      if [[ -n "$description" && "$description" != "null" ]]; then
+        echo "$line # $description"
+      else
+        echo "$line"
+      fi
+    done <<< "$packages"
+  } > "$PNPMFILE"
+  
+  echo "✅ Pnpmfile updated: $PNPMFILE"
+}
+
+_diff() {
+  local tmpfile
+  tmpfile=$(mktemp)
+  
+  echo "🔍 Dumping current global packages to temporary file for comparison..."
+  
+  # Create temporary Pnpmfile
+  {
+    echo "# --- Global pnpm packages ---"
+    echo "# Managed by dotpnpm"
+    echo "# Format: package@version # description"
+    echo ""
+    packages=$(pnpm list -g --depth=0 | 
+      grep -v "Legend:" | 
+      grep -v "dependencies:" |
+      grep -v "/Users/" |
+      grep -v "^$" |
+      sed 's/^[[:space:]]*//' |
+      sort)
+    while IFS= read -r line; do
+      pkg_name=$(echo "$line" | awk '{print $1}')
+      description=$(pnpm view "$pkg_name" description 2>/dev/null || echo "")
+      if [[ -n "$description" && "$description" != "null" ]]; then
+        echo "$line # $description"
+      else
+        echo "$line"
+      fi
+    done <<< "$packages"
+  } > "$tmpfile"
+  
+  echo "📄 Comparing $PNPMFILE with current global packages..."
+  if command -v colordiff >/dev/null; then
+    colordiff -u "$PNPMFILE" "$tmpfile" || true
+  else
+    diff -u "$PNPMFILE" "$tmpfile" || true
+  fi
+  
+  rm "$tmpfile"
+}
+
+case "$COMMAND" in
+  install) _install ;;
+  check)   _check ;;
+  clean)   _clean ;;
+  dump)    _dump ;;
+  diff)    _diff ;;
+  -h|--help) _usage ;;
+  *) echo "❌ Unknown command: $COMMAND"; _usage; exit 1 ;;
+esac
+

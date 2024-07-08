@@ -1,0 +1,27 @@
+#!/usr/bin/env zsh
+
+cd ~/Developer/agentk/dotties || exit 1
+
+for FOLDER in ~/.dotfiles/*(/); do
+    FOLDERNAME=${FOLDER:t}
+    if [[ $FOLDERNAME == ssh || $FOLDERNAME == .* ]]; then
+        continue
+    fi
+    rsync -avh --delete \
+        --exclude secrets.decrypted.json \
+        --exclude secrets.json \
+        --exclude node_modules \
+        "$HOME/.dotfiles/$FOLDERNAME/" \
+        "$HOME/Developer/agentk/dotties/$FOLDERNAME/"
+done
+
+for FILE in ~/.dotfiles/*(.); do
+    FILENAME=${FILE:t}
+    if [[ $FILENAME == .sops.yaml || $FILENAME == .DS_Store ]]; then
+        continue
+    fi
+    cp -v "$FILE" ~/Developer/agentk/dotties/$FILENAME
+done
+
+git add .
+git commit --amend --no-edit

@@ -1,0 +1,15 @@
+bat
+curl
+git
+gpg
+jq
+ripgrep
+rsync
+stow
+tmux
+tree
+vim
+zoxide
+zsh
+zsh-autosuggestions
+

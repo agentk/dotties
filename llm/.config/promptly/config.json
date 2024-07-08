@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "openai": {
+      "baseURL": "https://api.openai.com/v1",
+      "name": "OpenAI",
+      "tokenName": "openai"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "baseURL": "https://api.deepseek.com",
+      "tokenName": "deepseek"
+    },
+    "claude": {
+      "tokenName": "claude",
+      "name": "Claude",
+      "baseURL": "https://api.anthropic.com"
+    }
+  },
+  "provider": "openai",
+  "model": "gpt-4o-mini"
+}

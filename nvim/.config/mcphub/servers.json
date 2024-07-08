@@ -1,0 +1,142 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "autoApprove": [
+        "fetch"
+      ],
+      "command": "mcp-server-fetch"
+    },
+    "git": {
+      "autoApprove": [
+        "git_log",
+        "git_show",
+        "git_status",
+        "git_diff",
+        "git_diff_staged",
+        "git_diff_unstaged",
+        "git_create_branch",
+        "git_commit",
+        "git_checkout",
+        "git_add",
+        "git_reset"
+      ],
+      "command": "mcp-server-git"
+    },
+    "github": {
+      "args": [
+        "stdio"
+      ],
+      "autoApprove": [
+        "get_code_scanning_alert",
+        "get_commit",
+        "get_file_contents",
+        "get_issue",
+        "get_issue_comments",
+        "get_me",
+        "get_notification_details",
+        "get_pull_request",
+        "get_pull_request_comments",
+        "get_pull_request_diff",
+        "get_pull_request_files",
+        "get_pull_request_reviews",
+        "get_pull_request_status",
+        "get_secret_scanning_alert",
+        "get_tag",
+        "list_branches",
+        "list_code_scanning_alerts",
+        "list_commits",
+        "list_issues",
+        "list_notifications",
+        "list_pull_requests",
+        "list_secret_scanning_alerts",
+        "list_tags",
+        "search_users",
+        "search_repositories",
+        "search_issues",
+        "search_code"
+      ],
+      "command": "github-mcp-server",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${cmd:sops-read GITHUB_MCP_API_KEY}"
+      }
+    },
+    "memory": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "autoApprove": [
+        "create_entities",
+        "create_relations",
+        "add_observations",
+        "delete_entities",
+        "delete_observations",
+        "delete_relations",
+        "read_graph",
+        "search_nodes",
+        "open_nodes"
+      ],
+      "command": "npx"
+    },
+    "obsidian": {
+      "args": [
+        "-y",
+        "mcp-obsidian",
+        "${HOME}/notes/"
+      ],
+      "autoApprove": [
+        "read_notes",
+        "search_notes"
+      ],
+      "command": "npx"
+    },
+    "tavily": {
+      "args": [
+        "-y",
+        "tavily-mcp@latest"
+      ],
+      "autoApprove": [
+        "tavily-search",
+        "tavily-extract",
+        "tavily-crawl",
+        "tavily-map"
+      ],
+      "command": "npx",
+      "env": {
+        "TAVILY_API_KEY": "${cmd:sops-read TAVILY_API_KEY}"
+      }
+    }
+  },
+  "nativeMCPServers": {
+    "mcphub": {
+      "autoApprove": [
+        "get_current_servers",
+        "toggle_mcp_server"
+      ]
+    },
+    "neovim": {
+      "autoApprove": [
+        "execute_lua",
+        "execute_command",
+        "read_file",
+        "delete_item",
+        "move_item",
+        "find_files",
+        "list_directory",
+        "write_file",
+        "replace_in_file"
+      ],
+      "disabled_tools": [
+        "replace_in_file",
+        "write_file",
+        "read_file",
+        "move_item",
+        "list_directory",
+        "find_files",
+        "execute_lua",
+        "execute_command",
+        "delete_item"
+      ]
+    }
+  }
+}

@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BREWFILE="$HOME/.dotfiles/Brewfile"
+
+_usage() {
+  cat <<EOF
+Usage: dotbrew <command>
+
+Commands:
+  install     Install packages from Brewfile
+  check       Check if all packages are installed
+  clean       Remove packages not listed in Brewfile
+  dump        Save current system state to Brewfile with descriptions
+  diff        Show readable diff of current system vs Brewfile
+
+Options:
+  -h, --help  Show this help message
+  -f, --file  Use alternative Brewfile (default: $BREWFILE)
+EOF
+}
+
+COMMAND="${1:-}"; shift || true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--file)
+      BREWFILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      _usage
+      exit 0
+      ;;
+    *)
+      echo "❌ Unknown option: $1"
+      _usage
+      exit 1
+      ;;
+  esac
+done
+
+_install() {
+  echo "🔧 Checking for missing packages from $BREWFILE..."
+
+  local installed_formulae
+  installed_formulae=$(brew list 2>/dev/null || true)
+
+  local installed_casks
+  installed_casks=$(brew list --cask 2>/dev/null || true)
+
+  local installed_mas_apps=""
+  if command -v mas &>/dev/null; then
+    installed_mas_apps=$(mas list | awk '{print $2}' 2>/dev/null || true)
+  fi
+
+  local installed_vscode_extensions=""
+  if command -v code &>/dev/null; then
+    installed_vscode_extensions=$(code --list-extensions 2>/dev/null || true)
+  fi
+
+  local installed_packages
+  installed_packages=$( (brew list 2>/dev/null || true) && 
+                        (brew list --cask 2>/dev/null || true) && 
+                        (if command -v mas &>/dev/null; then mas list | awk '{print $2}'; fi) && 
+                        (if command -v code &>/dev/null; then code --list-extensions; fi) | tr -d '' | sort -u)
+
+  local -A installed_packages_map
+  while IFS= read -r p; do
+    installed_packages_map["$p"]=1
+  done <<< "$installed_packages"
+
+  local brewfile_packages=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^(brew|cask|mas|vscode) ]]; then
+      pkg_name=$(echo "$line" | awk '{print $2}' | sed 's/"//g')
+      brewfile_packages+=("$pkg_name")
+    fi
+  done < "$BREWFILE"
+
+  local missing_packages=()
+  for pkg in ${brewfile_packages[@]}; do
+    if [[ -z "${installed_packages_map[$pkg]:-}" ]]; then
+      missing_packages+=("$pkg")
+    fi
+  done
+
+  if [[ ${#missing_packages[@]} -eq 0 ]]; then
+    echo "✅ All packages are already installed. Nothing to do."
+  else
+    echo "🔧 Installing missing packages from $BREWFILE..."
+    brew bundle --file="$BREWFILE" --no-upgrade
+  fi
+}
+
+_check() {
+  echo "🔍 Checking packages against $BREWFILE..."
+  brew bundle check --file="$BREWFILE"
+}
+
+_clean() {
+  echo "🧹 Cleaning up packages not listed in $BREWFILE..."
+  brew bundle cleanup --file="$BREWFILE" --force
+}
+
+_generate_dump() {
+  local target_file="$1"
+  local tmpfile tmp_taps tmp_brews tmp_casks tmp_mas tmp_vscode
+  tmpfile=$(mktemp)
+  tmp_taps=$(mktemp)
+  tmp_brews=$(mktemp)
+  tmp_casks=$(mktemp)
+  tmp_mas=$(mktemp)
+  tmp_vscode=$(mktemp)
+
+  brew bundle dump --describe --file="$tmpfile" --force
+
+  local current_comment=""
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^\# ]]; then
+      current_comment="${line#\# }"
+    elif [[ "$line" =~ ^tap ]]; then
+      [[ -n "$current_comment" ]] && echo "$line # $current_comment" >> "$tmp_taps" || echo "$line" >> "$tmp_taps"
+      current_comment=""
+    elif [[ "$line" =~ ^brew ]]; then
+      [[ -n "$current_comment" ]] && echo "$line # $current_comment" >> "$tmp_brews" || echo "$line" >> "$tmp_brews"
+      current_comment=""
+    elif [[ "$line" =~ ^cask ]]; then
+      [[ -n "$current_comment" ]] && echo "$line # $current_comment" >> "$tmp_casks" || echo "$line" >> "$tmp_casks"
+      current_comment=""
+    elif [[ "$line" =~ ^mas ]]; then
+      [[ -n "$current_comment" ]] && echo "$line # $current_comment" >> "$tmp_mas" || echo "$line" >> "$tmp_mas"
+      current_comment=""
+    elif [[ "$line" =~ ^vscode ]]; then
+      [[ -n "$current_comment" ]] && echo "$line # $current_comment" >> "$tmp_vscode" || echo "$line" >> "$tmp_vscode"
+      current_comment=""
+    fi
+  done < "$tmpfile"
+
+  {
+    echo "# --- Homebrew Taps ---"
+    sort "$tmp_taps"
+    echo
+    echo "# --- Homebrew Formulae ---"
+    sort "$tmp_brews"
+    echo
+    echo "# --- Homebrew Casks ---"
+    sort "$tmp_casks"
+    echo
+    echo "# --- Mac App Store (mas) ---"
+    sort "$tmp_mas"
+    echo
+    echo "# --- VSCode Extensions ---"
+    sort "$tmp_vscode"
+  } > "$target_file"
+
+  rm "$tmpfile" "$tmp_taps" "$tmp_brews" "$tmp_casks" "$tmp_mas" "$tmp_vscode"
+}
+
+_diff() {
+  local tmpfile
+  tmpfile=$(mktemp)
+  echo "🔍 Dumping current system to temporary Brewfile for comparison..."
+  _generate_dump "$tmpfile"
+
+  echo "📄 Comparing $BREWFILE with current system state..."
+  if command -v colordiff >/dev/null; then
+    colordiff -u "$BREWFILE" "$tmpfile" || true
+  else
+    diff -u "$BREWFILE" "$tmpfile" || true
+  fi
+
+  rm "$tmpfile"
+}
+
+_dump() {
+  echo "📦 Dumping current Homebrew configuration to $BREWFILE with descriptions..."
+  _generate_dump "$BREWFILE"
+  echo "✅ Brewfile updated: $BREWFILE"
+}
+
+case "$COMMAND" in
+  install) _install ;;
+  check)   _check ;;
+  clean)   _clean ;;
+  dump)    _dump ;;
+  diff)    _diff ;;
+  -h|--help) _usage ;;
+  *) echo "❌ Unknown command: $COMMAND"; _usage; exit 1 ;;
+esac
+

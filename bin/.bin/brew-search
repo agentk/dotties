@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Check if search term is provided
+if [ -z "$1" ]; then
+  echo "Usage: brew-search <search-term>"
+  exit 1
+fi
+
+# Function to handle package actions
+handle_package_action() {
+  local package=$1
+  # Don't show action menu for headings or empty lines
+  if [[ "$package" =~ ^\*\*.*\*\*$ ]] || [[ -z "$package" ]]; then
+    return
+  fi
+
+  local action=$(echo -e "Show Info\nInstall\nOpen Website" | fzf --header="Select action for $package")
+
+  case "$action" in
+  "Show Info")
+    brew info "$package"
+    ;;
+  "Install")
+    echo "Installing $package..."
+    brew install "$package"
+    ;;
+  "Open Website")
+    local url=$(brew info "$package" | grep -E '^https?://' | head -n 1)
+    if [ -n "$url" ]; then
+      open "$url"
+    else
+      echo "No website found for $package"
+    fi
+    ;;
+  esac
+}
+
+# Search both formula and casks and format with headings
+search_results=$(echo -e "** Formula **\n$(brew search "$1" --formula 2>/dev/null)\n\n** Casks **\n$(brew search "$1" --cask 2>/dev/null)")
+
+# Present results in fzf with preview
+selected_package=$(echo "$search_results" | fzf --preview 'if ! echo {} | grep -q "^\*\*"; then
+    echo "=== Installation Status ==="
+    if brew list "{}" &>/dev/null; then
+        echo "✅ Installed"
+    else
+        echo "❌ Not installed"
+    fi
+    echo -e "\n=== Package Info ==="
+    brew info {} 2>/dev/null
+fi' \
+  --preview-window=right:70% \
+  --header="Select a package (Enter to select, Ctrl-C to exit)")
+
+# If a package is selected, show action menu
+if [ -n "$selected_package" ]; then
+  handle_package_action "$selected_package"
+fi

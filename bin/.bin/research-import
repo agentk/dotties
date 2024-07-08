@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+INPUT="$1"
+VAULT_DIR="${HOME}/notes/03 - Research"
+SOURCES_DIR="$VAULT_DIR/Sources"
+TOPICS_DIR="$VAULT_DIR/Topics"
+NODE_HELPER="$(dirname "$0")/summarise.js"
+
+mkdir -p "$SOURCES_DIR" "$TOPICS_DIR"
+
+is_url() {
+  [[ "$1" =~ ^https?:// ]]
+}
+
+generate_slug() {
+  echo "$1" | tr -dc '[:alnum:]- \n' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -s '-' | sed 's/^-//;s/-$//'
+}
+
+if is_url "$INPUT"; then
+  HASH=$(echo -n "$INPUT" | sha1sum | cut -d' ' -f1)
+  TITLE=$(node "$NODE_HELPER" --get-title "$INPUT")
+  SLUG=$(generate_slug "$TITLE")
+  OUTPUT_FILE="$SOURCES_DIR/$SLUG.md"
+
+  if grep -q "$HASH" "$SOURCES_DIR"/*.md 2>/dev/null; then
+    echo "Already imported: $INPUT"
+    exit 0
+  fi
+
+  echo "Summarising web content..."
+  node "$NODE_HELPER" "$INPUT" "$HASH" > "$OUTPUT_FILE"
+  echo "Saved to $OUTPUT_FILE"
+
+elif [[ "$INPUT" =~ \.pdf$ ]]; then
+  HASH=$(sha1sum "$INPUT" | cut -d' ' -f1)
+  BASENAME=$(basename "$INPUT" .pdf)
+  SLUG=$(generate_slug "$BASENAME")
+  OUTPUT_FILE="$SOURCES_DIR/$SLUG.md"
+
+  if grep -q "$HASH" "$SOURCES_DIR"/*.md 2>/dev/null; then
+    echo "Already imported: $INPUT"
+    exit 0
+  fi
+
+  echo "Extracting PDF text..."
+  TEXT=$(pandoc "$INPUT" -t plain)
+  echo "Summarising PDF content..."
+  node "$NODE_HELPER" --stdin "$HASH" "$INPUT" <<< "$TEXT" > "$OUTPUT_FILE"
+  echo "Saved to $OUTPUT_FILE"
+
+else
+  echo "Unsupported input: please provide a URL or PDF"
+  exit 1
+fi
+

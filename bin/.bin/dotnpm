@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+NPMFILE="$HOME/.dotfiles/Npmfile"
+
+_usage() {
+  cat <<EOF
+Usage: dotnpm <command>
+
+Commands:
+  install     Install global packages from Npmfile
+  check       Check if all global packages are installed
+  clean       Remove global packages not listed in Npmfile
+  dump        Save current global packages to Npmfile
+  diff        Show readable diff of current global packages vs Npmfile
+
+Options:
+  -h, --help  Show this help message
+  -f, --file  Use alternative Npmfile (default: $NPMFILE)
+EOF
+}
+
+COMMAND="${1:-}"; shift || true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--file)
+      NPMFILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      _usage
+      exit 0
+      ;;
+    *)
+      echo "❌ Unknown option: $1"
+      _usage
+      exit 1
+      ;;
+  esac
+done
+
+# Get list of globally installed npm packages in format: name@version
+_get_installed_packages() {
+  npm list -g --depth=0 --json | \
+    jq -r '.dependencies | keys[]' | \
+    sort
+}
+
+_install() {
+  echo "🔧 Installing packages from $NPMFILE..."
+
+  if [[ ! -f "$NPMFILE" ]]; then
+    echo "❌ Npmfile not found: $NPMFILE"
+    exit 1
+  fi
+
+  installed=$(_get_installed_packages)
+  local to_install_count=0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    package=$(echo "$line" | awk '{print $1}')
+    if [[ -n "$package" ]]; then
+      if ! echo "$installed" | grep -q "^$package$"; then
+        echo "📦 Installing $package..."
+        npm install -g "$package"
+        to_install_count=$((to_install_count + 1))
+      fi
+    fi
+  done < "$NPMFILE"
+
+  if [[ $to_install_count -gt 0 ]]; then
+    echo "✅ All new packages installed!"
+  else
+    echo "✅ All packages are already installed. Nothing to do."
+  fi
+}
+
+_check() {
+  echo "🔍 Checking packages against $NPMFILE..."
+
+  if [[ ! -f "$NPMFILE" ]]; then
+    echo "❌ Npmfile not found: $NPMFILE"
+    exit 1
+  fi
+
+  local missing=0
+  installed=$(_get_installed_packages)
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    package=$(echo "$line" | awk '{print $1}')
+    if [[ -n "$package" ]]; then
+      if ! echo "$installed" | grep -q "^$package$"; then
+        echo "❌ Missing: $package"
+        missing=$((missing + 1))
+      fi
+    fi
+  done < "$NPMFILE"
+
+  if [[ $missing -eq 0 ]]; then
+    echo "✅ All packages are installed!"
+    return 0
+  else
+    echo "❌ $missing package(s) missing"
+    return 1
+  fi
+}
+
+_clean() {
+  echo "🧹 Cleaning up packages not listed in $NPMFILE..."
+
+  if [[ ! -f "$NPMFILE" ]]; then
+    echo "❌ Npmfile not found: $NPMFILE"
+    exit 1
+  fi
+
+  installed=$(_get_installed_packages)
+  declare -A npmfile_packages
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+    package=$(echo "$line" | awk '{print $1}')
+    if [[ -n "$package" ]]; then
+      npmfile_packages["$package"]=1
+    fi
+  done < "$NPMFILE"
+
+  while IFS= read -r pkgver; do
+    pkg="$pkgver"
+    set +u
+    if ! [[ -v npmfile_packages[$pkg] ]]; then
+      set -u
+      if [[ "$pkg" == "npm" || "$pkg" == "corepack" ]]; then
+        echo "🚫 Skipping removal of $pkg to protect npm/corepack."
+        continue
+      fi
+      echo "🗑️  Removing: $pkg"
+      npm uninstall -g "$pkg"
+    else
+      set -u
+    fi
+  done <<< "$installed"
+
+  echo "✅ Clean-up complete!"
+}
+
+_dump() {
+  echo "📦 Dumping global npm packages to $NPMFILE..."
+
+  packages=$(_get_installed_packages)
+
+  {
+    echo "# --- Global npm packages ---"
+    echo "# Managed by dotnpm"
+    echo "# Format: package # description"
+    echo ""
+    while IFS= read -r line; do
+      description=$(npm view "$line" description 2>/dev/null || echo "")
+      if [[ -n "$description" && "$description" != "null" ]]; then
+        echo "$line # $description"
+      else
+        echo "$line"
+      fi
+    done <<< "$packages"
+  } > "$NPMFILE"
+
+  echo "✅ Npmfile updated: $NPMFILE"
+}
+
+_diff() {
+  local tmpfile
+  tmpfile=$(mktemp)
+
+  echo "🔍 Dumping current global packages to temporary file for comparison..."
+
+  {
+    echo "# --- Global npm packages ---"
+    echo "# Managed by dotnpm"
+    echo "# Format: package # description"
+    echo ""
+    packages=$(_get_installed_packages)
+    while IFS= read -r line; do
+      description=$(npm view "$line" description 2>/dev/null || echo "")
+      if [[ -n "$description" && "$description" != "null" ]]; then
+        echo "$line # $description"
+      else
+        echo "$line"
+      fi
+    done <<< "$packages"
+  } > "$tmpfile"
+
+  echo "📄 Comparing $NPMFILE with current global packages..."
+  if command -v colordiff >/dev/null; then
+    colordiff -u "$NPMFILE" "$tmpfile" || true
+  else
+    diff -u "$NPMFILE" "$tmpfile" || true
+  fi
+
+  rm "$tmpfile"
+}
+
+case "$COMMAND" in
+  install) _install ;;
+  check)   _check ;;
+  clean)   _clean ;;
+  dump)    _dump ;;
+  diff)    _diff ;;
+  -h|--help) _usage ;;
+  *) echo "❌ Unknown command: $COMMAND"; _usage; exit 1 ;;
+esac

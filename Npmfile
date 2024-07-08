@@ -1,0 +1,10 @@
+# --- Global npm packages ---
+# Managed by dotnpm
+# Format: package # description
+
+@google/gemini-cli # Gemini CLI
+@mermaid-js/mermaid-cli # Command-line interface for mermaid
+corepack
+mcp-hub # A manager server for MCP servers that handles process management and tool routing
+neovim # Nvim msgpack API client and remote plugin provider
+npm # a package manager for JavaScript

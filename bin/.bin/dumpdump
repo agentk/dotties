@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+set -o pipefail
+
+dotpnpm dump
+
+if [[ "$(uname)" == "Darwin" ]]; then
+  dotbrew dump
+elif [[ "$(uname)" == "Linux" ]]; then
+  dotapt dump
+fi

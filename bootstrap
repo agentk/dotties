@@ -1,0 +1,230 @@
+#!/usr/bin/env zsh
+
+SKIP_SUDO=
+SKIP_PACKAGE_INSTALL=
+SKIP_CHANGE_SHELL=
+SKIP_STOW=
+
+# -----------------------------------------------------------------------------
+
+_inverse=$(tput smso)    # inverse - marks beginning end of this script
+_bold=$(tput bold)       # bold - marks calling other functions or scripts
+_underline=$(tput smul)  # underline - marks comments
+_warning=$(tput setaf 3) # yellow - marks warnings
+_error=$(tput setaf 1)   # red - marks errors
+_reset=$(tput sgr0)      # normal - resets all
+
+# -----------------------------------------------------------------------------
+
+PLATFORM=$(uname)
+PLATFORM_MACOS=
+PLATFORM_LINUX=
+if [[ $PLATFORM == Darwin ]]; then
+  echo "${_inverse}Bootstrapping: 'macOS'${_reset}"
+  PLATFORM_MACOS=1
+elif [[ $PLATFORM == Linux ]]; then
+  echo "${_inverse}Bootstrapping: 'Linux'${_reset}"
+  PLATFORM_LINUX=1
+else
+  echo "${_error}Unknown platform: '$PLATFORM'${_reset}"
+  exit 1
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Sudo
+#
+
+if [[ $SKIP_SUDO ]]; then
+  echo "Skipping sudo"
+else
+  if [[ $PLATFORM_LINUX ]]; then
+    TARGET_FILE="/etc/sudoers.d/$USER"
+    echo "$USER ALL=(ALL) NOPASSWD: ALL" >/tmp/sudo-user
+    which sudo >/dev/null
+    if [[ $? == 1 ]]; then
+      echo "${_inverse} Setting up sudo ${_reset}"
+      su root -c "apt update && apt upgrade -y && apt install -y sudo && cp /tmp/sudo-user $TARGET_FILE"
+    elif [[ ! -e $TARGET_FILE ]]; then
+      echo "${_inverse} Setting up copying sudo file ${_reset}"
+      su root -c "cp /tmp/sudo-user $TARGET_FILE"
+    fi
+    rm /tmp/sudo-user
+    # We should be able to sudo without a password now
+    echo "${_warning} If you get prompted for a password, kill this script and verify sudo setup ${_reset}"
+    sudo whoami >/dev/null
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Base packages install
+#
+
+install_neovim() {
+  sudo apt install -y ninja-build gettext cmake unzip curl g++
+  if [[ ! -d ~/neovim ]]; then
+    git clone https://github.com/neovim/neovim.git ~/neovim
+  fi
+  cd ~/neovim || exit 1
+  git checkout stable
+  make CMAKE_BUILD_TYPE=RelWithDebInfo
+  sudo make install
+  cd ~/ || exit 1
+}
+
+if [[ $SKIP_PACKAGE_INSTALL ]]; then
+  echo "Skipping package install"
+else
+  # --------------
+  # --- Global ---
+  # --------------
+
+  if [[ $PLATFORM_LINUX ]]; then
+    ARCH=amd64
+    [[ $(uname -m) == 'aarch64' ]] && ARCH=arm64
+
+    echo "Updating apt and install dependencies"
+    sudo apt update -qq
+    sudo apt upgrade -qq -y
+    ~/.dotfiles/bin/.bin/dotapt install
+
+    # --- fzf ---
+    if ! which fzf >/dev/null; then
+      echo "Installing fzf ($ARCH)"
+      wget -qO- https://github.com/junegunn/fzf/releases/download/v0.56.3/fzf-0.56.3-linux_${ARCH}.tar.gz | sudo tar xvz -C /usr/local/bin
+    fi
+
+    # --- rust and cargo ---
+    if ! which cargo >/dev/null; then
+      if [[ ! -f ~/.cargo/env ]]; then
+        curl https://sh.rustup.rs -sSf | sh
+        . ~/.cargo/env
+      fi
+    fi
+
+    # --- nvm and node ---
+    if [[ ! -f ~/.nvm/nvm.sh ]]; then
+      wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+      export NVM_DIR="$HOME/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+      nvm install node
+    fi
+
+    # --- golang ---
+    if ! which go >/dev/null; then
+      wget -qO- https://go.dev/dl/go1.23.3.linux-${ARCH}.tar.gz | sudo tar xvz -C /usr/local
+      export PATH=$PATH:/usr/local/go/bin
+    fi
+
+    # --- neovim ---
+    which nvim >/dev/null
+    if [[ $? == 1 ]]; then
+      install_neovim
+      cargo install tree-sitter-cli
+    fi
+
+    if ! which eza >/dev/null; then
+      sudo mkdir -p /etc/apt/keyrings
+      wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+      sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+      sudo apt update
+      sudo apt install -y eza
+    fi
+
+  elif [[ $PLATFORM_MACOS ]]; then
+    # --- rust and cargo ---
+    if ! which cargo >/dev/null; then
+      curl https://sh.rustup.rs -sSf | sh
+      . ~/.cargo/env
+    fi
+
+    # --- Brew ---
+    which brew >/dev/null
+    if [[ $? == 1 ]]; then
+      echo "${_inverse} Brew not found - installing ${_reset}"
+      # xcode-select --install
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+    "$HOME/.dotfiles/bin/.bin/dotbrew" install
+
+    # Link up sops for global storage of private keys at ~/.config/sops/age/keys.txt
+    [[ -d ~/.config/sops/age ]] && mkdir -p ~/.config/sops/age
+    if [[ ! -L ~/Library/Application\ Support/sops ]]; then
+      ln -s ~/.config/sops ~/Library/Application\ Support/sops
+    fi
+  fi
+
+  # --- pnpm ---
+  if ! which pnpm >/dev/null; then
+    echo "${_inverse} pnpm not found - installing ${_reset}"
+    if [[ $PLATFORM_LINUX ]]; then
+      # Install pnpm via npm on Linux
+      npm install -g pnpm
+    elif [[ $PLATFORM_MACOS ]]; then
+      # On macOS, pnpm should be installed via Homebrew in the Brewfile
+      # This is just a fallback
+      if which brew >/dev/null; then
+        brew install pnpm
+      else
+        npm install -g pnpm
+      fi
+    fi
+  fi
+
+  # Install global pnpm packages
+  if which pnpm >/dev/null; then
+    echo "${_inverse} Installing global pnpm packages ${_reset}"
+    "$HOME/.dotfiles/bin/.bin/dotpnpm" install
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Change shell
+#
+
+if [[ $SKIP_CHANGE_SHELL ]]; then
+  echo "Skipping change shell"
+else
+  if [[ ! $SHELL =~ /zsh$ ]]; then
+    chsh -s "$(which zsh)"
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Stow
+#
+
+if [[ $SKIP_STOW ]]; then
+  echo "Skipping stow"
+else
+  for name in .bashrc .zshenv .zshrc; do
+    [[ -L ~/$name ]] && continue
+    [[ -f ~/$name ]] && {
+      echo "'$name' already exists, delete it?"
+      rm -iv ~/$name
+    }
+  done
+
+  stow \
+    --dir="$HOME/.dotfiles" \
+    --target="$HOME" \
+    --restow \
+    bash \
+    bat \
+    bin \
+    ghostty \
+    git \
+    hammerspoon \
+    lazygit \
+    llm \
+    macos \
+    nvim \
+    ssh \
+    tmux \
+    zsh
+fi
+# vim: ts=2:sw=2:sts=2:et:ft=zsh

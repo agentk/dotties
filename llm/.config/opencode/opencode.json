@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "github-copilot/gpt-4.1",
+  "theme": "tokyonight",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen2.5-coder:32b": { "name": "qwen2.5-coder:32b" },
+        "qwen3:32b": { "name": "qwen3:32b" },
+        "qwen3:30b": { "name": "qwen3:30b (reasoning)" }
+      }
+    }
+  }
+}
