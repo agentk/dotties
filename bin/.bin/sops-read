@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+sops --decrypt --extract "[\"$1\"]" ~/.dotfiles/secrets/secrets.json

@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APTFILE="${APTFILE:-$HOME/.dotfiles/Aptfile}"
+
+_usage() {
+  cat <<EOF
+Usage: dotapt <command>
+
+Commands:
+  install     Install packages from Aptfile
+  check       Report missing packages
+  clean       Remove packages not in Aptfile
+  dump        Export manually installed packages to Aptfile
+
+Options:
+  -f, --file  Path to Aptfile (default: $APTFILE)
+  -h, --help  Show this help message
+EOF
+}
+
+COMMAND="${1:-}"; shift || true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f|--file)
+      APTFILE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      _usage
+      exit 0
+      ;;
+    *)
+      echo "❌ Unknown option: $1"
+      _usage
+      exit 1
+      ;;
+  esac
+done
+
+_get_manual_packages() {
+  comm -23 \
+    <(apt-mark showmanual | sort) \
+    <(gzip -dc /var/log/installer/initial-status.gz 2>/dev/null | sed -n 's/^Package: //p' | sort)
+}
+
+_install() {
+  echo "🔧 Installing packages from $APTFILE..."
+  sudo apt-get update -qq
+  xargs -a "$APTFILE" sudo apt-get install -y
+}
+
+_check() {
+  echo "🔍 Checking for missing packages..."
+  local missing=()
+  while read -r pkg; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+      missing+=("$pkg")
+    fi
+  done < "$APTFILE"
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    echo "✅ All packages installed"
+  else
+    printf "❌ Missing packages:\n%s\n" "${missing[@]}"
+    exit 1
+  fi
+}
+
+_dump() {
+  echo "📦 Dumping manually installed packages to $APTFILE..."
+  _get_manual_packages > "$APTFILE"
+  echo "✅ Aptfile updated: $APTFILE"
+}
+
+_clean() {
+  echo "🧹 Removing packages not listed in $APTFILE..."
+  mapfile -t current < <(_get_manual_packages)
+  mapfile -t listed < <(sort "$APTFILE")
+
+  mapfile -t to_remove < <(comm -23 <(printf "%s\n" "${current[@]}") <(printf "%s\n" "${listed[@]}"))
+
+  if [[ ${#to_remove[@]} -eq 0 ]]; then
+    echo "✅ No extra packages to remove"
+    return
+  fi
+
+  printf "⚠️  These packages will be removed:\n%s\n" "${to_remove[@]}"
+  read -rp "Proceed? [y/N] " confirm
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    sudo apt-get remove -y "${to_remove[@]}"
+  else
+    echo "❌ Cancelled"
+  fi
+}
+
+case "$COMMAND" in
+  install) _install ;;
+  check)   _check ;;
+  clean)   _clean ;;
+  dump)    _dump ;;
+  -h|--help) _usage ;;
+  *) echo "❌ Unknown command: $COMMAND"; _usage; exit 1 ;;
+esac
+

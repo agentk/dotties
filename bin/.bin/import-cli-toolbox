@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec node "$HOME/.dotfiles/tools/dist/import-cli-toolbox.js" "$@"
