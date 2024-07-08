@@ -1,0 +1,137 @@
+return {
+  -- {
+  --   'gsuuon/model.nvim',
+  --   lazy = false,
+  --
+  --   -- Don't need these if lazy = false
+  --   -- cmd = { 'M', 'Model', 'Mchat' },
+  --   -- init = function()
+  --   --   vim.filetype.add({
+  --   --     extension = {
+  --   --       mchat = 'mchat',
+  --   --     },
+  --   --   })
+  --   -- end,
+  --   -- ft = 'mchat',
+  --
+  --   keys = {
+  --     { '<C-m>d', ':Mdelete<cr>', mode = 'n' },
+  --     { '<C-m>s', ':Mselect<cr>', mode = 'n' },
+  --     { '<C-m><space>', ':Mchat<cr>', mode = 'n' },
+  --   },
+  --
+  --   -- To override defaults add a config field and call setup()
+  --
+  --   config = function()
+  --     local llamacpp = require('model.providers.llamacpp')
+  --
+  --     local function input_if_selection(input, context)
+  --       return context.selection and input or ''
+  --     end
+  --
+  --     local function contents_to_strings(messages, system)
+  --       local result = {
+  --         '<|system|>\n' .. system,
+  --       }
+  --
+  --       for _, msg in ipairs(messages) do
+  --         table.insert(result, '\n<|' .. msg.role .. '|>\n' .. msg.content)
+  --       end
+  --
+  --       table.insert(result, '\n<|assistant|>\n')
+  --
+  --       return result
+  --     end
+  --
+  --     local file_deepseek_coder_Q4 = 'TheBloke/deepseek-coder-1.3b-instruct-GGUF/deepseek-coder-1.3b-instruct.Q4_0.gguf'
+  --     local file_deepseek_coder_Q8 = 'TheBloke/deepseek-coder-1.3b-instruct-GGUF/deepseek-coder-1.3b-instruct.Q8_0.gguf'
+  --     local file_llama_318B = 'lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf'
+  --     local file_mistral = 'TheBloke/Mistral-7B-Instruct-v0.2-GGUF/mistral-7b-instruct-v0.2.Q4_K_S.gguf'
+  --     local file_wizard_vicuna_uncensored = 'TheBloke/Wizard-Vicuna-7B-Uncensored-GGUF/Wizard-Vicuna-7B-Uncensored.Q4_0.gguf'
+  --     local file_wizardlm_uncensored = 'TheBloke/WizardLM-7B-uncensored-GGUF/WizardLM-7B-uncensored.Q4_K_M.gguf'
+  --
+  --     local function builder1(input, context)
+  --       return {
+  --         prompt = '<|system|>' .. (context.args or 'You are a helpful assistant') .. '\n</s>\n<|user|>\n' .. input .. '</s>\n<|assistant|>',
+  --         stops = { '</s>' },
+  --       }
+  --     end
+  --
+  --     local function mistralChatTemplate(input, context)
+  --       return {}
+  --
+  --       --       "chatTemplate": "<s>
+  --       -- {% for message in messages %}
+  --       -- {% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}
+  --       -- {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
+  --       -- {% endif %}
+  --       -- {% if message['role'] == 'user' %}
+  --       --   {{ '[INST] ' + message['content'] + ' [/INST]' }}
+  --       -- {% elif message['role'] == 'assistant' %}
+  --       --   {{ message['content'] + eos_token}}
+  --       -- {% else %}
+  --       -- {{ raise_exception('Only user and assistant roles are supported!') }}
+  --       -- {% endif %}
+  --       -- {% endfor %}",
+  --       --     "parameters": "8B",
+  --       --     "bosToken": "<s>",
+  --       --     "eosToken": "</s>",
+  --     end
+  --
+  --     local function prompt_factory(file, contextLength, numLayers, builder)
+  --       return {
+  --         provider = llamacpp,
+  --         options = {
+  --           model = file,
+  --           args = { '-c', contextLength, '-ngl', numLayers },
+  --         },
+  --         builder = builder,
+  --       }
+  --     end
+  --
+  --     local function runMistral(messages, config)
+  --       return {
+  --         prompt = table.concat(
+  --           contents_to_strings(messages, config.system or 'You are a helpful assistant'),
+  --           '</s>\n' -- llama.cpp seems to correctly stop generating if we just have </s> strings in prompt now
+  --           -- may need a stop = {'</s>'} if not, or use the tokenizing runner
+  --         ),
+  --       }
+  --     end
+  --
+  --     local function factoryChat(file, contextLength, numLayers, builder)
+  --       return {
+  --         provider = llamacpp,
+  --         options = {
+  --           model = file,
+  --           args = { '-c', contextLength, '-ngl', numLayers },
+  --         },
+  --         system = 'You are a helpful assistant',
+  --         create = input_if_selection,
+  --         run = builder,
+  --       }
+  --     end
+  --
+  --     require('model').setup({
+  --       default_prompt = 'deepseek',
+  --       prompts = {
+  --         deepseek = prompt_factory(file_deepseek_coder_Q8, 16384, 24, builder1),
+  --         ['deepseek:q4'] = prompt_factory(file_deepseek_coder_Q4, 16384, 24, builder1),
+  --         llama = prompt_factory(file_llama_318B, 131072, 32, builder1),
+  --         mistral = prompt_factory(file_mistral, 32768, 32, builder1),
+  --         vicuna = prompt_factory(file_wizard_vicuna_uncensored, 2048, 32, builder1),
+  --         wizardlm = prompt_factory(file_wizardlm_uncensored, 2048, 32, builder1),
+  --       },
+  --       chats = {
+  --         mistral = factoryChat(file_mistral, 32768, 32, runMistral),
+  --       },
+  --     })
+  --
+  --     require('model.providers.llamacpp').setup({
+  --       binary = '/opt/homebrew/bin/llama-server',
+  --       models = '~/.cache/lm-studio/models',
+  --     })
+  --   end,
+  -- },
+}
+-- vim: ts=2 sts=2 sw=2 et
