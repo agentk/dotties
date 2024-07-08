@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# echo -n "$PWD"
+pwd | sed "s|^$HOME|~|"
