@@ -1,7 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "github-copilot/gpt-4.1",
   "theme": "tokyonight",
+  "autoupdate": false,
+  "model": "github-copilot/gpt-4.1",
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",

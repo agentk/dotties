@@ -1,3 +1,4 @@
+local util = require('util')
 return {
   {
     'yetone/avante.nvim',
@@ -18,77 +19,16 @@ return {
       'MeanderingProgrammer/render-markdown.nvim',
     },
     opts = function()
-      local function copilot(model, description)
-        return {
-          __inherited_from = 'copilot',
-          model = model,
-          display_name = 'copilot/' .. description .. ' (' .. model .. ')',
-          hide_in_model_selector = false,
-        }
+      local models = {}
+      if util.enterprise then
+        models = require('plugins/ai/models/enterprise')
+      else
+        models = require('plugins/ai/models/personal')
       end
-      return {
-        provider = 'copilot/claude-3.7-sonnet',
+      local opts = {
         providers = {
-          ['copilot/claude-3.5-sonnet'] = copilot('claude-3.5-sonnet', 'Claude Sonnet 3.5'),
-          ['copilot/claude-3.7-sonnet'] = copilot('claude-3.7-sonnet', 'Claude Sonnet 3.7'),
-          ['copilot/claude-3.7-sonnet-thought'] = copilot('claude-3.7-sonnet-thought', 'Claude Sonnet 3.7 Thinking'),
-          -- ['copilot/claude-sonnet-4'] = copilot('claude-sonnet-4', 'Claude Sonnet 4'),
-          ['copilot/gemini-2.0-flash-001'] = copilot('gemini-2.0-flash-001', 'Gemini 2.0 Flash'),
-          ['copilot/gemini-2.5-pro'] = copilot('gemini-2.5-pro', 'Gemini 2.5 Pro (Preview)'),
-          -- ['copilot/gemini-2.5-pro-preview-06-05'] = copilot('gemini-2.5-pro-preview-06-05', 'Gemini 2.5 Pro (Preview)'),
-          ['copilot/gpt-3.5-turbo'] = copilot('gpt-3.5-turbo', 'GPT 3.5 Turbo'),
-          -- ['copilot/gpt-3.5-turbo-0613'] = copilot('gpt-3.5-turbo-0613', 'GPT 3.5 Turbo'),
-          ['copilot/gpt-4'] = copilot('gpt-4', 'GPT 4'),
-          -- ['copilot/gpt-4-0613'] = copilot('gpt-4-0613', 'GPT 4'),
-          -- ['copilot/gpt-4-0125-preview'] = copilot('gpt-4-0125-preview', 'GPT 4 Turbo'),
-          ['copilot/gpt-4.1'] = copilot('gpt-4.1', 'GPT-4.1'),
-          -- ['copilot/gpt-4.1-2025-04-14'] = copilot('gpt-4.1-2025-04-14', 'GPT-4.1'),
-          ['copilot/gpt-4o'] = copilot('gpt-4o', 'GPT-4o'),
-          -- ['copilot/gpt-4o-2024-05-13'] = copilot('gpt-4o-2024-05-13', 'GPT-4o'),
-          -- ['copilot/gpt-4o-2024-08-06'] = copilot('gpt-4o-2024-08-06', 'GPT-4o'),
-          -- ['copilot/gpt-4o-2024-11-20'] = copilot('gpt-4o-2024-11-20', 'GPT-4o'),
-          -- ['copilot/gpt-4-o-preview'] = copilot('gpt-4-o-preview', 'GPT-4o'),
-          -- ['copilot/gpt-4o-mini-2024-07-18'] = copilot('gpt-4o-mini-2024-07-18', 'GPT-4o mini'),
-          ['copilot/gpt-4o-mini'] = copilot('gpt-4o-mini', 'GPT-4o mini'),
-          ['copilot/o1'] = copilot('o1', 'o1 (Preview)'),
-          -- ['copilot/o1-2024-12-17'] = copilot('o1-2024-12-17', 'o1 (Preview)'),
-          ['copilot/o3-mini'] = copilot('o3-mini', 'o3-mini'),
-          -- ['copilot/o3-mini-2025-01-31'] = copilot('o3-mini-2025-01-31', 'o3-mini'),
-          ['copilot/o4-mini'] = copilot('o4-mini', 'o4-mini (Preview)'),
-          -- ['copilot/o4-mini-2025-04-16'] = copilot('o4-mini-2025-04-16', 'o4-mini (Preview)'),
-          copilot = {
-            hide_in_model_selector = true,
-          },
-          ollama = {
-            model = 'qwen2.5-coder:32b',
-            is_env_set = function() return true end,
-          },
-          -- openai = {
-          --   endpoint = 'https://api.openai.com/v1',
-          --   model = 'gpt-4o', -- your desired model (or use gpt-4o, etc.)
-          --   extra_request_body = {
-          --     timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
-          --     temperature = 0.75,
-          --     max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-          --     --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
-          --   },
-          -- },
-          -- claude = {
-          --   endpoint = 'https://api.anthropic.com',
-          --   api_key_name = 'ANTHROPIC_API_KEY',
-          --   model = 'claude-3-5-sonnet-20241022',
-          --   extra_request_body = {
-          --     temperature = 0.75,
-          --     max_tokens = 8192,
-          --   },
-          -- },
-          -- deepseek = {
-          --   __inherited_from = 'openai',
-          --   api_key_name = 'DEEPSEEK_API_KEY',
-          --   endpoint = 'https://api.deepseek.com',
-          --   model = 'deepseek-coder',
-          --   max_tokens = 8192,
-          -- },
+          ollama = { model = 'qwen2.5-coder:32b', is_env_set = function() return true end },
+          copilot = { hide_in_model_selector = true },
           vertex = { hide_in_model_selector = true },
           vertex_claude = { hide_in_model_selector = true },
         },
@@ -130,7 +70,21 @@ return {
             require('mcphub.extensions.avante').mcp_tool(),
           }
         end,
+        disabled_tools = {
+          -- Disable tools that are provided centrally by mcphub
+          'list_files',
+          'search_files',
+          'read_file',
+          'create_file',
+          'rename_file',
+          'delete_file',
+          'create_dir',
+          'rename_dir',
+          'delete_dir',
+          'bash',
+        },
       }
+      return vim.tbl_deep_extend('force', models, opts)
     end,
     config = function(_, opts)
       require('avante').setup(opts)

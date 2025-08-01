@@ -3,6 +3,7 @@
 SKIP_SUDO=
 SKIP_PACKAGE_INSTALL=
 SKIP_CHANGE_SHELL=
+SKIP_GIT_HOOKS=
 SKIP_STOW=
 
 # -----------------------------------------------------------------------------
@@ -155,29 +156,6 @@ else
       ln -s ~/.config/sops ~/Library/Application\ Support/sops
     fi
   fi
-
-  # --- pnpm ---
-  if ! which pnpm >/dev/null; then
-    echo "${_inverse} pnpm not found - installing ${_reset}"
-    if [[ $PLATFORM_LINUX ]]; then
-      # Install pnpm via npm on Linux
-      npm install -g pnpm
-    elif [[ $PLATFORM_MACOS ]]; then
-      # On macOS, pnpm should be installed via Homebrew in the Brewfile
-      # This is just a fallback
-      if which brew >/dev/null; then
-        brew install pnpm
-      else
-        npm install -g pnpm
-      fi
-    fi
-  fi
-
-  # Install global pnpm packages
-  if which pnpm >/dev/null; then
-    echo "${_inverse} Installing global pnpm packages ${_reset}"
-    "$HOME/.dotfiles/bin/.bin/dotpnpm" install
-  fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -191,6 +169,17 @@ else
   if [[ ! $SHELL =~ /zsh$ ]]; then
     chsh -s "$(which zsh)"
   fi
+fi
+
+# -----------------------------------------------------------------------------
+#
+# Setup git hooks
+#
+
+if [[ $SKIP_GIT_HOOKS ]]; then
+  echo "Skipping git hooks"
+else
+  git config core.hooksPath .githooks
 fi
 
 # -----------------------------------------------------------------------------
@@ -216,13 +205,17 @@ else
     bash \
     bat \
     bin \
+    curl \
     ghostty \
     git \
     hammerspoon \
+    javascript \
     lazygit \
     llm \
     macos \
     nvim \
+    python \
+    ripgrep \
     ssh \
     tmux \
     zsh

@@ -1,8 +1,6 @@
 local M = {}
 
-function M.ensure_installed(packages)
-  return M.table_append('ensure_installed', packages)
-end
+function M.ensure_installed(packages) return M.table_append('ensure_installed', packages) end
 
 function M.table_append(key, list)
   return function(_, opts)
@@ -27,13 +25,41 @@ end
 function M.fuzzy_root(buf_nr, pattern)
   local buffer = vim.api.nvim_buf_get_name(buf_nr)
   local bufpath = vim.fn.fnamemodify(buffer, ':p:h')
-  local paths = vim.fs.find(function(name, _)
-    return name:match(pattern) ~= nil
-  end, {
+  local paths = vim.fs.find(function(name, _) return name:match(pattern) ~= nil end, {
     upward = true,
     path = bufpath,
   })
   return vim.fs.dirname(paths[1])
 end
+
+M.enterprise = os.getenv('USER') == 'karl.bowden'
+M.personal = not M.enterprise
+
+-- For more art see: https://github.com/MaximilianLloyd/ascii.nvim/blob/master/lua/ascii/text/neovim.lua
+
+M.bloody = table.concat({
+  [[                                                     ]],
+  [[  ███▄    █ ▓█████  ▒█████   ██▒   █▓ ██▓ ███▄ ▄███▓ ]],
+  [[  ██ ▀█   █ ▓█   ▀ ▒██▒  ██▒▓██░   █▒▓██▒▓██▒▀█▀ ██▒ ]],
+  [[ ▓██  ▀█ ██▒▒███   ▒██░  ██▒ ▓██  █▒░▒██▒▓██    ▓██░ ]],
+  [[ ▓██▒  ▐▌██▒▒▓█  ▄ ▒██   ██░  ▒██ █░░░██░▒██    ▒██  ]],
+  [[ ▒██░   ▓██░░▒████▒░ ████▓▒░   ▒▀█░  ░██░▒██▒   ░██▒ ]],
+  [[ ░ ▒░   ▒ ▒ ░░ ▒░ ░░ ▒░▒░▒░    ░ ▐░  ░▓  ░ ▒░   ░  ░ ]],
+  [[ ░ ░░   ░ ▒░ ░ ░  ░  ░ ▒ ▒░    ░ ░░   ▒ ░░  ░      ░ ]],
+  [[    ░   ░ ░    ░   ░ ░ ░ ▒       ░░   ▒ ░░      ░    ]],
+  [[          ░    ░  ░    ░ ░        ░   ░         ░    ]],
+  [[                                 ░                   ]],
+  [[                                                     ]],
+}, '\n')
+
+M.elite = table.concat({
+  [[                                   ]],
+  [[  ▐ ▄ ▄▄▄ .       ▌ ▐·▪  • ▌ ▄ ·.  ]],
+  [[ •█▌▐█▀▄.▀·▪     ▪█·█▌██ ·██ ▐███▪ ]],
+  [[ ▐█▐▐▌▐▀▀▪▄ ▄█▀▄ ▐█▐█•▐█·▐█ ▌▐▌▐█· ]],
+  [[ ██▐█▌▐█▄▄▌▐█▌.▐▌ ███ ▐█▌██ ██▌▐█▌ ]],
+  [[ ▀▀ █▪ ▀▀▀  ▀█▄▀▪. ▀  ▀▀▀▀▀  █▪▀▀▀ ]],
+  [[                                   ]],
+}, '\n')
 
 return M

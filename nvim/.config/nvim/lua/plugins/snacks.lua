@@ -1,29 +1,4 @@
--- For more art see: https://github.com/MaximilianLloyd/ascii.nvim/blob/master/lua/ascii/text/neovim.lua
----@diagnostic disable-next-line: unused-local
-local bloody = table.concat({
-  [[                                                     ]],
-  [[  ███▄    █ ▓█████  ▒█████   ██▒   █▓ ██▓ ███▄ ▄███▓ ]],
-  [[  ██ ▀█   █ ▓█   ▀ ▒██▒  ██▒▓██░   █▒▓██▒▓██▒▀█▀ ██▒ ]],
-  [[ ▓██  ▀█ ██▒▒███   ▒██░  ██▒ ▓██  █▒░▒██▒▓██    ▓██░ ]],
-  [[ ▓██▒  ▐▌██▒▒▓█  ▄ ▒██   ██░  ▒██ █░░░██░▒██    ▒██  ]],
-  [[ ▒██░   ▓██░░▒████▒░ ████▓▒░   ▒▀█░  ░██░▒██▒   ░██▒ ]],
-  [[ ░ ▒░   ▒ ▒ ░░ ▒░ ░░ ▒░▒░▒░    ░ ▐░  ░▓  ░ ▒░   ░  ░ ]],
-  [[ ░ ░░   ░ ▒░ ░ ░  ░  ░ ▒ ▒░    ░ ░░   ▒ ░░  ░      ░ ]],
-  [[    ░   ░ ░    ░   ░ ░ ░ ▒       ░░   ▒ ░░      ░    ]],
-  [[          ░    ░  ░    ░ ░        ░   ░         ░    ]],
-  [[                                 ░                   ]],
-  [[                                                     ]],
-}, '\n')
----@diagnostic disable-next-line: unused-local
-local elite = table.concat({
-  [[                                   ]],
-  [[  ▐ ▄ ▄▄▄ .       ▌ ▐·▪  • ▌ ▄ ·.  ]],
-  [[ •█▌▐█▀▄.▀·▪     ▪█·█▌██ ·██ ▐███▪ ]],
-  [[ ▐█▐▐▌▐▀▀▪▄ ▄█▀▄ ▐█▐█•▐█·▐█ ▌▐▌▐█· ]],
-  [[ ██▐█▌▐█▄▄▌▐█▌.▐▌ ███ ▐█▌██ ██▌▐█▌ ]],
-  [[ ▀▀ █▪ ▀▀▀  ▀█▄▀▪. ▀  ▀▀▀▀▀  █▪▀▀▀ ]],
-  [[                                   ]],
-}, '\n')
+local util = require('util')
 ---@diagnostic disable: undefined-global
 return {
   {
@@ -31,41 +6,56 @@ return {
     priority = 1000,
     lazy = false,
     ---@type snacks.Config
-    opts = {
-      bigfile = { enabled = true },
-      dashboard = {
-        enabled = false,
-        preset = {
-          header = elite,
+    opts = function()
+      return {
+        bigfile = { enabled = true },
+        dashboard = {
+          enabled = true, -- util.enterprise,
+          preset = {
+            header = util.elite,
+            keys = {
+              { icon = ' ', key = 'f', desc = 'Find File', action = ":lua Snacks.dashboard.pick('files')" },
+              { icon = ' ', key = 'n', desc = 'New File', action = ':ene | startinsert' },
+              { icon = ' ', key = 'g', desc = 'Find Text', action = ":lua Snacks.dashboard.pick('live_grep')" },
+              { icon = ' ', key = 'r', desc = 'Recent Files', action = ":lua Snacks.dashboard.pick('oldfiles')" },
+              { icon = ' ', key = 'c', desc = 'Config', action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})" },
+              { icon = ' ', key = 's', desc = 'Restore Session', section = 'session' },
+              { icon = '󰒲 ', key = 'L', desc = 'Lazy', action = ':Lazy', enabled = package.loaded.lazy ~= nil },
+              { icon = ' ', key = 'M', desc = 'MCPHub', action = ':MCPHub', enabled = package.loaded.lazy ~= nil },
+              { icon = ' ', key = 'q', desc = 'Quit', action = ':qa' },
+            },
+          },
+          sections = {
+            { section = 'header' },
+            -- { section = 'terminal', cmd = 'cat ~/.config/nvim/logo.cat', height = 32, padding = 1 },
+            function()
+              return {
+                icon = ' ',
+                title = 'Git Status',
+                cmd = 'git --no-pager diff --stat -B -M -C',
+                height = 10,
+                section = 'terminal',
+                enabled = Snacks.git.get_root() ~= nil,
+                padding = 1,
+                ttl = 5 * 60,
+                indent = 3,
+              }
+            end,
+            -- { section = 'keys', gap = 1, padding = 1 },
+            { section = 'keys' },
+            { section = 'startup' },
+          },
         },
-        sections = {
-          { section = 'header' },
-          -- { section = 'terminal', cmd = 'cat ~/.config/nvim/logo.cat', height = 32, padding = 1 },
-          function()
-            return {
-              icon = ' ',
-              title = 'Git Status',
-              cmd = 'git --no-pager diff --stat -B -M -C',
-              height = 10,
-              section = 'terminal',
-              enabled = Snacks.git.get_root() ~= nil,
-              padding = 1,
-              ttl = 5 * 60,
-              indent = 3,
-            }
-          end,
-          { section = 'startup' },
+        indent = {
+          enabled = true,
+          indent = { char = '┊' },
+          animate = { enabled = false },
         },
-      },
-      indent = {
-        enabled = true,
-        indent = { char = '┊' },
-        animate = { enabled = false },
-      },
-      notifier = { enabled = true },
-      statuscolumn = { enabled = true },
-      words = { enabled = true },
-    },
+        notifier = { enabled = true },
+        statuscolumn = { enabled = true },
+        words = { enabled = true },
+      }
+    end,
     keys = {
       { '<leader>gb', function() Snacks.picker.git_branches() end, desc = 'Git Branches' },
       { '<leader>gS', function() Snacks.picker.git_status() end, desc = 'Git Status' },

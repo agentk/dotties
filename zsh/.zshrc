@@ -6,15 +6,15 @@ _secret() { ~/.dotfiles/bin/.bin/sops-read "$1" }
 
 # --- Homebrew ---
 
-export HOMEBREW_CELLAR="/opt/homebrew/Cellar";
+export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
 export HOMEBREW_GITHUB_API_TOKEN=$(_secret HOMEBREW_GITHUB_API_TOKEN)
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ENV_HINTS=1
-export HOMEBREW_PREFIX="/opt/homebrew";
-export HOMEBREW_REPOSITORY="/opt/homebrew";
-export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
-export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:";
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}";
+export HOMEBREW_PREFIX="/opt/homebrew"
+export HOMEBREW_REPOSITORY="/opt/homebrew"
+export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}"
+export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:"
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}"
 
 # --- History ---
 
@@ -266,7 +266,11 @@ eval "$(zoxide init zsh)"
 
 # --- Command prompt ---
 
-PROMPT="%B%F{10}%n%f%F{12}@%m%f%b%F{15} %~%f"$'\n'"%# "
+git_branch() {
+  git branch --show-current 2>/dev/null | sed 's/.*/ &/'
+}
+setopt prompt_subst
+PROMPT="%B%F{10}%n%f%F{12}@%m%f%b%F{15} %~%f%F{242}\$(git_branch)%f"$'\n'"%# "
 
 # --- Environment based extensions ---
 
@@ -283,7 +287,3 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
-
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/karl/.cache/lm-studio/bin"
-export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"

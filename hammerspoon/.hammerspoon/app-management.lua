@@ -7,6 +7,8 @@ function M.init(hyper)
     o = 'Obsidian',
     s = 'Safari',
     t = 'Ghostty',
+    m = 'Microsoft Teams',
+    j = 'Microsoft Outlook',
   }
 
   for key, app in pairs(mapping) do

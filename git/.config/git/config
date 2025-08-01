@@ -2,6 +2,14 @@
   email = karl@bearded.sexy
   name = Karl Bowden
 
+[maintenance]
+
+[http]
+  postBuffer = 524288000
+
+[push]
+  autoSetupRemote = true
+
 [core]
   editor = nvim
   pager = delta
@@ -34,10 +42,5 @@
 [advice]
   detachedHead = false
 
-# [credential "https://gist.github.com"]
-#   helper = "gh auth git-credential"
-
-# [credential "https://github.com"]
-#   helper = "gh auth git-credential"
 [credential]
   helper = store

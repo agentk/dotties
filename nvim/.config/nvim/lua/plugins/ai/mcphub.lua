@@ -6,7 +6,7 @@ return {
       'nvim-lua/plenary.nvim',
     },
     -- Installs `mcp-hub` node binary globally
-    build = 'pnpm install -g mcp-hub@latest',
+    build = 'npm install -g mcp-hub@latest',
     opts = {
       ---Chat-plugin related options-----------------
       -- Auto approve mcp tool calls
