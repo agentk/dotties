@@ -3,7 +3,17 @@
 SKIP_SUDO=
 SKIP_PACKAGE_INSTALL=
 SKIP_CHANGE_SHELL=
+SKIP_GIT_HOOKS=
 SKIP_STOW=
+
+# Check for --fix flag
+FIX_MODE=false
+for arg in "$@"; do
+  if [[ "$arg" == "--fix" ]]; then
+    FIX_MODE=true
+    break
+  fi
+done
 
 # -----------------------------------------------------------------------------
 
@@ -155,29 +165,6 @@ else
       ln -s ~/.config/sops ~/Library/Application\ Support/sops
     fi
   fi
-
-  # --- pnpm ---
-  if ! which pnpm >/dev/null; then
-    echo "${_inverse} pnpm not found - installing ${_reset}"
-    if [[ $PLATFORM_LINUX ]]; then
-      # Install pnpm via npm on Linux
-      npm install -g pnpm
-    elif [[ $PLATFORM_MACOS ]]; then
-      # On macOS, pnpm should be installed via Homebrew in the Brewfile
-      # This is just a fallback
-      if which brew >/dev/null; then
-        brew install pnpm
-      else
-        npm install -g pnpm
-      fi
-    fi
-  fi
-
-  # Install global pnpm packages
-  if which pnpm >/dev/null; then
-    echo "${_inverse} Installing global pnpm packages ${_reset}"
-    "$HOME/.dotfiles/bin/.bin/dotpnpm" install
-  fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -195,8 +182,49 @@ fi
 
 # -----------------------------------------------------------------------------
 #
+# Setup git hooks
+#
+
+if [[ $SKIP_GIT_HOOKS ]]; then
+  echo "Skipping git hooks"
+else
+  git config core.hooksPath .githooks
+fi
+
+# -----------------------------------------------------------------------------
+#
 # Stow
 #
+
+check_and_link() {
+  local source_path="$1"
+  local target_path="$2"
+
+  if [ -L "$target_path" ]; then
+    # Target exists and is a symlink
+    local actual
+    actual="$(readlink "$target_path")"
+
+    if [ "$actual" = "$source_path" ]; then
+      echo "✅ Correct symlink exists: $target_path → $actual"
+    else
+      if $FIX_MODE; then
+        rm "$target_path"
+        ln -s "$source_path" "$target_path"
+        echo "🔁 Fixed symlink: $target_path → $source_path"
+      else
+        echo "⚠️  Warning: $target_path is a symlink to '$actual', expected '$source_path'"
+      fi
+    fi
+  elif [ ! -e "$target_path" ]; then
+    # Target doesn't exist — create symlink
+    ln -s "$source_path" "$target_path"
+    echo "✔️ Linked: $target_path → $source_path"
+  else
+    # Target exists and is not a symlink
+    echo "⚠️  Warning: $target_path exists and is not a symlink — skipping"
+  fi
+}
 
 if [[ $SKIP_STOW ]]; then
   echo "Skipping stow"
@@ -209,22 +237,31 @@ else
     }
   done
 
-  stow \
-    --dir="$HOME/.dotfiles" \
-    --target="$HOME" \
-    --restow \
-    bash \
-    bat \
-    bin \
-    ghostty \
-    git \
-    hammerspoon \
-    lazygit \
-    llm \
-    macos \
-    nvim \
-    ssh \
-    tmux \
-    zsh
+  for NAME in .curlrc bat gh git lazygit ghostty tmux zsh mcphub nvim uv pip promptly preferences opencode npm .bunfig.toml ripgrep; do
+    check_and_link "$HOME/.dotfiles/.config/$NAME" "$HOME/.config/$NAME"
+  done
+
+  # Anything outside of XDG_CONFIG_HOME that is a direct mapping
+  for NAME in .cache/opencode/bunfig.toml .hammerspoon .ssh/config .yamllint; do
+    check_and_link "$HOME/.dotfiles/$NAME" "$HOME/$NAME"
+  done
+
+  check_and_link "$HOME/.dotfiles/.config/zsh/.zshenv" "$HOME/.zshenv"
+  check_and_link "$HOME/.dotfiles/Library/LaunchAgents/com.local.KeyRemapping.plist" "$HOME/Library/LaunchAgents/com.local.KeyRemapping.plist"
+  check_and_link "$HOME/.dotfiles/Library/LaunchAgents/com.local.setenv.plist" "$HOME/Library/LaunchAgents/com.local.setenv.plist"
+
+  # stow \
+  #   --dir="$HOME/.dotfiles" \
+  #   --target="$HOME" \
+  #   --restow \
+  #   bash \
+  #   bin \
+  #   hammerspoon \
+  #   javascript \
+  #   nvim \
+  #   python \
+  #   ripgrep \
+  #   ssh \
+  #   tmux \
 fi
 # vim: ts=2:sw=2:sts=2:et:ft=zsh

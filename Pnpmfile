@@ -1,8 +1,0 @@
-# --- Global pnpm packages ---
-# Managed by dotpnpm
-# Format: package@version # description
-
-@mermaid-js/mermaid-cli 11.6.0 # Command-line interface for mermaid
-corepack 0.33.0
-mcp-hub 3.7.0 # A manager server for MCP servers that handles process management and tool routing
-neovim 5.3.0 # Nvim msgpack API client and remote plugin provider

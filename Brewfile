@@ -1,5 +1,4 @@
 # --- Homebrew Taps ---
-tap "homebrew/bundle"
 tap "nicholascross/promptly"
 tap "sst/tap"
 
@@ -13,6 +12,7 @@ brew "btop" # Resource monitor. C++ version and continuation of bashtop and bpyt
 brew "caddy" # Powerful, enterprise-ready, open source web server with automatic HTTPS
 brew "chafa" # Versatile and fast Unicode/ASCII/ANSI graphics renderer
 brew "cheat" # Create and view interactive cheat sheets for *nix commands
+brew "cloc" # Statistics utility to count lines of code
 brew "codex" # OpenAI's coding agent that runs in your terminal
 brew "coreutils" # GNU File, Shell, and Text utilities
 brew "dockerfile-language-server" # Language server for Dockerfiles powered by Node, TypeScript, and VSCode
@@ -25,11 +25,13 @@ brew "gawk" # GNU awk utility
 brew "gh" # GitHub command-line tool
 brew "ghostscript" # Interpreter for PostScript and PDF
 brew "git-delta" # Syntax-highlighting pager for git and diff output
+brew "git" # Distributed revision control system
 brew "github-mcp-server" # GitHub Model Context Protocol server for AI tools
 brew "gnu-sed" # GNU implementation of the famous stream editor
 brew "gnupg" # GNU Pretty Good Privacy (PGP) package
 brew "go" # Open source programming language to build simple/reliable/efficient software
 brew "gollama" # Go manage your Ollama models
+brew "graphviz" # Graph visualization software from AT&T and Bell Labs
 brew "hadolint" # Smarter Dockerfile linter to validate best practices
 brew "imagemagick" # Tools and libraries to manipulate images in many formats
 brew "jq" # Lightweight and flexible command-line JSON processor
@@ -43,7 +45,7 @@ brew "mpv" # Media player based on MPlayer and mplayer2
 brew "neovim" # Ambitious Vim-fork focused on extensibility and agility
 brew "nmap" # Port scanning utility for large networks
 brew "node" # Platform built on V8 to build network applications
-brew "openjdk" # Development kit for the Java programming language
+brew "pandoc" # Swiss-army knife of markup format conversion
 brew "pngpaste" # Paste PNG into files
 brew "pnpm" # Fast, disk space efficient package manager
 brew "prettier" # Code formatter for JavaScript, CSS, JSON, GraphQL, Markdown, YAML
@@ -67,8 +69,12 @@ brew "tmux" # Terminal multiplexer
 brew "uv" # Extremely fast Python package installer and resolver, written in Rust
 brew "vale" # Syntax-aware linter for prose
 brew "vapor" # Command-line tool for Vapor (Server-side Swift web framework)
+brew "watch" # Executes a program periodically, showing output fullscreen
 brew "wget" # Internet file retriever
 brew "wireshark" # Network analyzer and capture tool - without graphical user interface
+brew "xcbeautify" # Little beautifier tool for xcodebuild
+brew "xcresultparser" # Parse binary .xcresult bundles from Xcode builds and test runs
+brew "xctesthtmlreport" # Xcode-like HTML report for Unit and UI Tests
 brew "yaml-language-server" # Language Server for Yaml Files
 brew "yamllint" # Linter for YAML files
 brew "yq" # Process YAML, JSON, XML, CSV and properties documents from the CLI
@@ -76,6 +82,7 @@ brew "yt-dlp" # Feature-rich command-line audio/video downloader
 brew "yydecode" # Decode yEnc archives
 brew "zoxide" # Shell extension to navigate your filesystem faster
 brew "zsh-autosuggestions" # Fish-like fast/unobtrusive autosuggestions for zsh
+brew "zsh-syntax-highlighting" # Fish shell like syntax highlighting for zsh
 
 # --- Homebrew Casks ---
 cask "affinity-designer" # Professional graphic design software
@@ -104,7 +111,6 @@ cask "hammerspoon" # Desktop automation application
 cask "imageoptim" # Tool to optimise images to a smaller size
 cask "istat-menus" # System monitoring app
 cask "kicad" # Electronics design automation suite
-cask "lm-studio" # Discover, download, and run local LLMs
 cask "lycheeslicer" # Slicer for Resin 3D printers
 cask "maccy" # Clipboard manager
 cask "macpilot" # Graphical user interface for the command terminal
@@ -141,10 +147,18 @@ cask "vlc" # Multimedia player
 # --- Mac App Store (mas) ---
 
 # --- VSCode Extensions ---
-vscode "continue.continue"
+vscode "dbaeumer.vscode-eslint"
 vscode "docker.docker"
 vscode "enkia.tokyo-night"
+vscode "esbenp.prettier-vscode"
+vscode "github.copilot-chat"
+vscode "github.copilot"
+vscode "jasonnutter.vscode-codeowners"
+vscode "llvm-vs-code-extensions.lldb-dap"
 vscode "ms-azuretools.vscode-containers"
 vscode "ms-azuretools.vscode-docker"
 vscode "ms-vscode-remote.remote-containers"
+vscode "redhat.vscode-yaml"
 vscode "sst-dev.opencode"
+vscode "streetsidesoftware.code-spell-checker"
+vscode "swiftlang.swift-vscode"

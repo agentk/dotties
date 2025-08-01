@@ -2,6 +2,7 @@
 # Managed by dotnpm
 # Format: package # description
 
+@anthropic-ai/claude-code # Use Claude, Anthropic's AI assistant, right from your terminal. Claude can understand your codebase, edit files, run terminal commands, and handle entire workflows for you.
 @google/gemini-cli # Gemini CLI
 @mermaid-js/mermaid-cli # Command-line interface for mermaid
 corepack

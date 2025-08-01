@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+FILE=".config/mcphub/servers.json"
+
+# Check if the file exists
+if [ -f "$FILE" ]; then
+  echo "Sorting JSON keys in $FILE..."
+
+  # Sort the keys using jq and overwrite in-place
+  TMP_FILE=$(mktemp)
+  jq --sort-keys . "$FILE" >"$TMP_FILE" && mv "$TMP_FILE" "$FILE"
+
+  # Add back the updated file to the commit (in case it was staged before)
+  git add "$FILE"
+else
+  echo "No JSON file at $FILE to sort."
+fi
